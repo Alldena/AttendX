@@ -3,220 +3,152 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Student Attendance | AttendX</title>
+  <title>AttendX | Student Attendance</title>
   <link rel="stylesheet" href="style.css">
+  <!-- QR code scanning library -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
 </head>
 <body>
-  <nav class="navbar">
-    <a class="logo" href="index.html">AttendX</a>
-    <div class="nav-links">
-      <a class="nav-link" href="index.html">Home</a>
-      <a class="nav-link" href="report.html">Attendance Report</a>
-    </div>
-  </nav>
-
-  <main class="page-container" style="max-width:760px">
-    <section class="page-heading">
-      <h1>Student Attendance</h1>
-      <p>Enter your demo details and complete the attendance steps.</p>
-    </section>
-
+  <header>
+    <h1>AttendX</h1>
+    <p>Student Attendance Portal</p>
+  </header>
+  <main class="container">
     <section class="card">
-      <h2>1. Student Details</h2>
-      <label for="student-name">Student Name</label>
-      <input id="student-name" placeholder="Demo Student" required>
-      <label for="student-id">Student ID</label>
-      <input id="student-id" placeholder="STU001" required>
-
-      <hr>
-      <h2>2. Verify Class QR</h2>
-      <p class="note">Copy the current QR contents from the teacher dashboard and paste them below. The contents expire after 10 seconds.</p>
-      <label for="qr-data">QR Contents</label>
-      <textarea id="qr-data" rows="4" placeholder="Paste QR contents here"></textarea>
-      <div class="button-row">
-        <button id="verify-qr">Verify QR</button>
-        <button id="clear-qr" class="button-secondary">Clear</button>
-      </div>
-      <div id="qr-message" hidden role="status"></div>
-
-      <hr>
-      <h2>3. Demo Face-Check Step</h2>
-      <p class="note">The camera is only a preview. It does not recognize or verify your face.</p>
-      <div class="button-row">
-        <button id="open-camera" class="button-teal" disabled>Open Camera</button>
-        <button id="stop-camera" class="button-secondary" disabled>Stop Camera</button>
-      </div>
-      <video id="camera" autoplay playsinline hidden></video>
-
-      <div class="button-row">
-        <button id="mark-present" disabled>Mark Present</button>
-        <a href="report.html" class="button button-secondary">View Attendance Report</a>
-      </div>
-      <div id="attendance-message" hidden role="status"></div>
+      <h2>Mark Your Attendance</h2>
+      <p>Enter your details, then scan your teacher's QR code.</p>
+      <label for="studentName">Student Name</label>
+      <input id="studentName" type="text" placeholder="Enter your name">
+      <label for="studentId">Student ID</label>
+      <input id="studentId" type="text" placeholder="Enter your student ID">
+      <h3>Scan QR Code</h3>
+      <div id="reader" style="width:100%; max-width:400px;"></div>
+      <p id="scanStatus">Tap Start Scanner to use your camera.</p>
+      <button type="button" id="startScan">Start Scanner</button>
+      <button type="button" id="stopScan">Stop Scanner</button>
+      <label for="qrData">Scanned QR Contents</label>
+      <textarea id="qrData" rows="4"
+        placeholder="Your scanned QR information will appear here"></textarea>
+      <button type="button" id="verifyButton">Verify QR</button>
+      <p id="result"></p>
+      <a href="index.html">Back to Home</a>
     </section>
   </main>
-
   <script>
-    const SESSION_KEY = "attendx_active_session";
-    const RECORDS_KEY = "attendx_attendance";
-    const $ = id => document.getElementById(id);
-
-    let verifiedQR = null;
-    let cameraStream = null;
-
-    function show(el, text, type) {
-      el.hidden = false;
-      el.className = "status-message status-" + type;
-      el.textContent = text;
-    }
-
-    function readSession() {
-      try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); }
-      catch { return null; }
-    }
-
-    function readRecords() {
-      try { return JSON.parse(localStorage.getItem(RECORDS_KEY) || "[]"); }
-      catch { return []; }
-    }
-
-    $("verify-qr").addEventListener("click", function() {
-      const name = $("student-name").value.trim();
-      const studentId = $("student-id").value.trim();
-
-      verifiedQR = null;
-      $("open-camera").disabled = true;
-      $("mark-present").disabled = true;
-
-      if (!name || !studentId) {
-        show($("qr-message"), "Enter your student name and ID first.", "error");
-        return;
-      }
-
-      let data;
+    const studentName = document.getElementById("studentName");
+    const studentId = document.getElementById("studentId");
+    const qrData = document.getElementById("qrData");
+    const scanStatus = document.getElementById("scanStatus");
+    const result = document.getElementById("result");
+    let scanner = null;
+    let scannerRunning = false;
+    function getActiveSession() {
       try {
-        data = JSON.parse($("qr-data").value.trim());
+        return JSON.parse(localStorage.getItem("attendx_active_session"));
       } catch {
-        show($("qr-message"), "Invalid QR contents. Copy the complete current QR from the dashboard.", "error");
-        return;
+        return null;
       }
-
-      const now = Date.now();
-      const session = readSession();
-
-      if (data.project !== "AttendX" || !data.className ||
-          !data.sessionId || !data.token || !data.createdAt || !data.expiresAt) {
-        show($("qr-message"), "This is not a valid AttendX QR.", "error");
-        return;
-      }
-
-      if (now > data.expiresAt || now < data.createdAt || now - data.createdAt > 10000) {
-        show($("qr-message"), "QR expired. Copy the latest QR contents and try again.", "error");
-        return;
-      }
-
-      if (!session || !session.active ||
-          session.sessionId !== data.sessionId ||
-          session.className !== data.className) {
-        show($("qr-message"), "No matching active class. Ask the teacher to start the class.", "error");
-        return;
-      }
-
-      verifiedQR = data;
-      $("open-camera").disabled = false;
-      show($("qr-message"), "QR verified for " + data.className + ". Continue to the camera step.", "success");
-    });
-
-    $("open-camera").addEventListener("click", async function() {
-      if (!verifiedQR) return;
-
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        show($("attendance-message"), "Camera requires localhost or HTTPS. Open this project through VS Code Live Server.", "error");
-        return;
-      }
-
-      try {
-        cameraStream = await navigator.mediaDevices.getUserMedia({
-          video: true,
-          audio: false
-        });
-        $("camera").srcObject = cameraStream;
-        $("camera").hidden = false;
-        $("stop-camera").disabled = false;
-        $("mark-present").disabled = false;
-        show($("attendance-message"), "Camera opened. This is a preview, not face recognition.", "info");
-      } catch {
-        show($("attendance-message"), "Camera could not open. Allow camera permission in Chrome and try again.", "error");
-      }
-    });
-
-    function stopCamera() {
-      if (cameraStream) {
-        cameraStream.getTracks().forEach(track => track.stop());
-      }
-      cameraStream = null;
-      $("camera").srcObject = null;
-      $("camera").hidden = true;
-      $("stop-camera").disabled = true;
     }
-
-    $("stop-camera").addEventListener("click", function() {
-      stopCamera();
-      $("mark-present").disabled = true;
-    });
-
-    $("mark-present").addEventListener("click", function() {
-      const name = $("student-name").value.trim();
-      const studentId = $("student-id").value.trim();
-      const session = readSession();
-
-      if (!verifiedQR || !cameraStream || !name || !studentId) {
-        show($("attendance-message"), "Verify the QR, enter your details and open the camera first.", "error");
+    function onScanSuccess(decodedText) {
+      qrData.value = decodedText;
+      scanStatus.textContent = "QR scanned successfully!";
+      result.textContent = "QR captured. Now tap Verify QR.";
+      stopScanner();
+    }
+    async function startScanner() {
+      if (scannerRunning) return;
+      if (!window.isSecureContext) {
+        scanStatus.textContent =
+          "Camera access requires HTTPS or localhost. Open the site using Live Server or its HTTPS link.";
         return;
       }
-
-      if (!session || !session.active || session.sessionId !== verifiedQR.sessionId) {
-        show($("attendance-message"), "The class has ended. Ask the teacher to start a new class.", "error");
-        stopCamera();
-        $("mark-present").disabled = true;
+      try {
+        if (!scanner) {
+          scanner = new Html5Qrcode("reader");
+        }
+        scanStatus.textContent = "Requesting camera permission...";
+        await scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          onScanSuccess,
+          () => {}
+        );
+        scannerRunning = true;
+        scanStatus.textContent = "Point your camera at the teacher's QR code.";
+      } catch (error) {
+        scanStatus.textContent =
+          "Could not start camera. Allow camera permission and try HTTPS or localhost.";
+        console.error(error);
+      }
+    }
+    async function stopScanner() {
+      if (scanner && scannerRunning) {
+        try {
+          await scanner.stop();
+        } catch (error) {
+          console.error(error);
+        }
+        scannerRunning = false;
+      }
+    }
+    document.getElementById("startScan").addEventListener("click", startScanner);
+    document.getElementById("stopScan").addEventListener("click", stopScanner);
+    document.getElementById("verifyButton").addEventListener("click", () => {
+      result.textContent = "";
+      const name = studentName.value.trim();
+      const id = studentId.value.trim();
+      const rawQR = qrData.value.trim();
+      if (!name || !id || !rawQR) {
+        result.textContent = "Please enter your name and ID, then scan the QR code.";
         return;
       }
-
-      const records = readRecords();
-      const duplicate = records.some(r =>
-        String(r.studentId).toLowerCase() === studentId.toLowerCase() &&
-        r.sessionId === verifiedQR.sessionId
+      let qr;
+      try {
+        qr = JSON.parse(rawQR);
+      } catch {
+        result.textContent = "Invalid QR code. Please scan the teacher's AttendX QR.";
+        return;
+      }
+      const activeSession = getActiveSession();
+      if (!activeSession || activeSession.status !== "active") {
+        result.textContent = "No active class found. Ask your teacher to start the class.";
+        return;
+      }
+      if (
+        qr.project !== "AttendX" ||
+        qr.sessionId !== activeSession.sessionId ||
+        qr.className !== activeSession.className
+      ) {
+        result.textContent = "This QR code does not match the active class.";
+        return;
+      }
+      if (!qr.expiresAt || Date.now() > Number(qr.expiresAt)) {
+        result.textContent = "This QR code has expired. Scan the latest QR code.";
+        return;
+      }
+      const attendance = JSON.parse(
+        localStorage.getItem("attendx_attendance") || "[]"
       );
-
+      const duplicate = attendance.some(
+        record =>
+          record.studentId.toLowerCase() === id.toLowerCase() &&
+          record.sessionId === activeSession.sessionId
+      );
       if (duplicate) {
-        show($("attendance-message"), "Attendance was already marked for this student in this class.", "error");
-      } else {
-        records.push({
-          studentName: name,
-          studentId: studentId,
-          className: verifiedQR.className,
-          sessionId: verifiedQR.sessionId,
-          status: "Present",
-          markedAt: new Date().toLocaleString()
-        });
-
-        localStorage.setItem(RECORDS_KEY, JSON.stringify(records));
-        show($("attendance-message"), "Marked Present! Your demo attendance has been saved. Open the report to view it.", "success");
+        result.textContent = "Attendance has already been recorded for this student.";
+        return;
       }
-
-      stopCamera();
-      $("mark-present").disabled = true;
+      attendance.push({
+        studentName: name,
+        studentId: id,
+        className: activeSession.className,
+        sessionId: activeSession.sessionId,
+        status: "Present",
+        timestamp: new Date().toISOString()
+      });
+      localStorage.setItem("attendx_attendance", JSON.stringify(attendance));
+      result.textContent = "Attendance marked successfully!";
     });
-
-    $("clear-qr").addEventListener("click", function() {
-      $("qr-data").value = "";
-      verifiedQR = null;
-      $("open-camera").disabled = true;
-      $("mark-present").disabled = true;
-      show($("qr-message"), "QR contents cleared.", "info");
-    });
-
-    window.addEventListener("beforeunload", stopCamera);
   </script>
 </body>
 </html>
