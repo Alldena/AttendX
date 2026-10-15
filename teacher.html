@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher Login | AttendX</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a class="logo" href="index.html">AttendX</a>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="report.html">Report</a>
+    </div>
+  </nav>
+
+  <main class="page-container" style="max-width:550px">
+    <section class="page-heading">
+      <h1>Teacher Login</h1>
+      <p>Enter the demo credentials to continue.</p>
+    </section>
+
+    <section class="card">
+      <form id="login-form">
+        <label for="email">Email ID</label>
+        <input id="email" type="email"
+          value="teacher@example.com" required>
+
+        <label for="password">Password</label>
+        <input id="password" type="password"
+          value="Test12345" required>
+
+        <button type="submit" style="width:100%;margin-top:22px">
+          Login
+        </button>
+      </form>
+
+      <div id="message" hidden role="status"></div>
+      <p class="note">Demo email: teacher@example.com</p>
+      <p class="note">Demo password: Test12345</p>
+      <p class="note">This is a demo login, not secure authentication.</p>
+    </section>
+  </main>
+
+  <script>
+    document.getElementById("login-form").addEventListener("submit", function(event) {
+      event.preventDefault();
+
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
+      const message = document.getElementById("message");
+
+      if (email === "teacher@example.com" && password === "Test12345") {
+        sessionStorage.setItem("attendx_demo_teacher", "yes");
+        window.location.href = "dashboard.html";
+      } else {
+        message.hidden = false;
+        message.className = "status-message status-error";
+        message.textContent = "Incorrect details. Use the demo email and password shown below.";
+      }
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Report | AttendX</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav class="navbar">
+    <a class="logo" href="index.html">AttendX</a>
+    <div class="nav-links">
+      <a class="nav-link" href="index.html">Home</a>
+      <a class="nav-link" href="teacher.html">Teacher</a>
+      <a class="nav-link" href="student.html">Student</a>
+    </div>
+  </nav>
+
+  <main class="page-container">
+    <section class="page-heading">
+      <h1>Attendance Report</h1>
+      <p>Attendance records saved in this browser's AttendX demo.</p>
+    </section>
+
+    <section class="card">
+      <label for="class-filter">Filter by class</label>
+      <input id="class-filter" placeholder="Leave blank to show all classes">
+
+      <div id="metrics" class="metric-grid"></div>
+
+      <div class="button-row">
+        <button id="refresh">Refresh Report</button>
+        <button id="download" class="button-teal">Download CSV</button>
+        <button id="reset" class="button-danger">Reset Demo Records</button>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Student Name</th>
+              <th>Student ID</th>
+              <th>Class</th>
+              <th>Status</th>
+              <th>Marked At</th>
+            </tr>
+          </thead>
+          <tbody id="report-body"></tbody>
+        </table>
+      </div>
+
+      <p class="note">The report lists saved attendance. The absent count includes only records explicitly marked absent; this demo does not maintain a full student roster.</p>
+      <p class="note">Records are stored locally, not on a shared server. Use fictional student details only.</p>
+    </section>
+  </main>
+
+  <script>
+    const RECORDS_KEY = "attendx_attendance";
+    const filterInput = document.getElementById("class-filter");
+    const reportBody = document.getElementById("report-body");
+    const metrics = document.getElementById("metrics");
+
+    function readRecords() {
+      try { return JSON.parse(localStorage.getItem(RECORDS_KEY) || "[]"); }
+      catch { return []; }
+    }
+
+    function filteredRecords() {
+      const filter = filterInput.value.trim().toLowerCase();
+      return readRecords().filter(r =>
+        !filter || String(r.className || "").toLowerCase().includes(filter)
+      );
+    }
+
+    function renderReport() {
+      const records = filteredRecords();
+      const present = records.filter(r => r.status === "Present").length;
+      const absent = records.filter(r => r.status === "Absent").length;
+
+      metrics.innerHTML =
+        '<div class="metric"><strong>' + records.length + '</strong><span>Total records</span></div>' +
+        '<div class="metric"><strong>' + present + '</strong><span>Present</span></div>' +
+        '<div class="metric"><strong>' + absent + '</strong><span>Marked absent</span></div>';
+
+      reportBody.innerHTML = "";
+
+      if (!records.length) {
+        reportBody.innerHTML = '<tr><td colspan="5">No records yet. Start a class and mark a demo student present.</td></tr>';
+        return;
+      }
+
+      records.forEach(r => {
+        const row = document.createElement("tr");
+        [r.studentName, r.studentId, r.className, r.status, r.markedAt].forEach((value, index) => {
+          const cell = document.createElement("td");
+          cell.textContent = value || "";
+          if (index === 3) {
+            cell.className = r.status === "Present" ? "present" : "absent";
+          }
+          row.appendChild(cell);
+        });
+        reportBody.appendChild(row);
+      });
+    }
+
+    document.getElementById("refresh").addEventListener("click", renderReport);
+    filterInput.addEventListener("input", renderReport);
+    window.addEventListener("storage", renderReport);
+
+    document.getElementById("download").addEventListener("click", function() {
+      const rows = [
+        ["Student Name", "Student ID", "Class", "Status", "Marked At"],
+        ...filteredRecords().map(r => [
+          r.studentName, r.studentId, r.className, r.status, r.markedAt
+        ])
+      ];
+
+      const csv = rows.map(row => row.map(value =>
+        '"' + String(value ?? "").replace(/"/g, '""') + '"'
+      ).join(",")).join("\r\n");
+
+      const blob = new Blob(["\uFEFF" + csv], {
+        type: "text/csv;charset=utf-8;"
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "AttendX_Attendance_Report.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById("reset").addEventListener("click", function() {
+      if (confirm("Delete all saved AttendX demo attendance records?")) {
+        localStorage.removeItem(RECORDS_KEY);
+        renderReport();
+      }
+    });
+
+    renderReport();
+  </script>
+</body>
+</html>

@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Teacher Dashboard | AttendX</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body>
+  <nav class="navbar">
+    <a class="logo" href="index.html">AttendX</a>
+    <div class="nav-links">
+      <a class="nav-link" href="student.html">Student Page</a>
+      <a class="nav-link" href="report.html">Report</a>
+      <a class="nav-link" href="index.html" id="logout">Log out</a>
+    </div>
+  </nav>
+
+  <main class="page-container">
+    <section class="page-heading">
+      <h1>Teacher Dashboard</h1>
+      <p>Manage your demo class and attendance.</p>
+      <span id="class-status" class="session-badge">No active class</span>
+    </section>
+
+    <div class="two-column">
+      <section class="card">
+        <h2>Class Controls</h2>
+
+        <label for="teacher-name">Teacher Name</label>
+        <input id="teacher-name" value="Demo Teacher">
+
+        <label for="subject">Subject / Class Name</label>
+        <input id="subject" value="Computer Science">
+
+        <div class="button-row">
+          <button id="start-class">Start Class</button>
+          <button id="end-class" class="button-danger">End Class</button>
+        </div>
+
+        <div id="message" hidden role="status"></div>
+
+        <div class="button-row">
+          <a class="button button-secondary" href="student.html">Student Page</a>
+          <a class="button button-secondary" href="report.html">Attendance Report</a>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Live Class QR</h2>
+        <p id="qr-status" class="note">Start a class to generate the QR code.</p>
+        <div id="qrcode"></div>
+        <p class="note">The QR refreshes every 10 seconds. Copy its contents quickly for the student demo.</p>
+
+        <label for="qr-text">Current QR contents</label>
+        <textarea id="qr-text" rows="4" readonly></textarea>
+        <button id="copy-qr" class="button-secondary" style="margin-top:12px">Copy QR Contents</button>
+      </section>
+    </div>
+
+    <section class="card" style="margin-top:22px">
+      <h2>Attendance Summary</h2>
+      <div id="summary" class="metric-grid"></div>
+      <button id="refresh-summary" class="button-secondary">Refresh Summary</button>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr><th>Student</th><th>Student ID</th><th>Status</th><th>Marked At</th></tr>
+          </thead>
+          <tbody id="records-body"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const SESSION_KEY = "attendx_active_session";
+    const RECORDS_KEY = "attendx_attendance";
+    let qrTimer = null;
+
+    if (sessionStorage.getItem("attendx_demo_teacher") !== "yes") {
+      window.location.replace("teacher.html");
+    }
+
+    function getSession() {
+      try { return JSON.parse(localStorage.getItem(SESSION_KEY) || "null"); }
+      catch { return null; }
+    }
+
+    function getRecords() {
+      try { return JSON.parse(localStorage.getItem(RECORDS_KEY) || "[]"); }
+      catch { return []; }
+    }
+
+    function message(text, type = "info") {
+      const el = document.getElementById("message");
+      el.hidden = false;
+      el.className = "status-message status-" + type;
+      el.textContent = text;
+    }
+
+    function renderQR() {
+      const session = getSession();
+      const box = document.getElementById("qrcode");
+      const qrText = document.getElementById("qr-text");
+      box.innerHTML = "";
+
+      if (!session || !session.active) {
+        qrText.value = "";
+        document.getElementById("qr-status").textContent = "No active class. Click Start Class.";
+        return;
+      }
+
+      const now = Date.now();
+      const payload = {
+        project: "AttendX",
+        className: session.className,
+        sessionId: session.sessionId,
+        token: (crypto.randomUUID ? crypto.randomUUID() : String(now) + Math.random()),
+        createdAt: now,
+        expiresAt: now + 10000
+      };
+
+      const raw = JSON.stringify(payload);
+      qrText.value = raw;
+      document.getElementById("qr-status").textContent =
+        "Active class: " + session.className;
+
+      if (typeof QRCode !== "undefined") {
+        new QRCode(box, {
+          text: raw,
+          width: 210,
+          height: 210,
+          correctLevel: QRCode.CorrectLevel.M
+        });
+      } else {
+        box.textContent = "QR library did not load. Copy the QR contents below.";
+      }
+    }
+
+    function renderSummary() {
+      const session = getSession();
+      const all = getRecords();
+      const records = session
+        ? all.filter(r => r.sessionId === session.sessionId)
+        : all;
+
+      const present = records.filter(r => r.status === "Present").length;
+      document.getElementById("summary").innerHTML =
+        '<div class="metric"><strong>' + records.length + '</strong><span>Saved records</span></div>' +
+        '<div class="metric"><strong>' + present + '</strong><span>Present</span></div>' +
+        '<div class="metric"><strong>' + Math.max(0, 5 - present) + '</strong><span>Estimated absent in a 5-student demo</span></div>';
+
+      const body = document.getElementById("records-body");
+      body.innerHTML = "";
+
+      if (!records.length) {
+        body.innerHTML = '<tr><td colspan="4">No attendance records yet.</td></tr>';
+        return;
+      }
+
+      records.forEach(r => {
+        const row = document.createElement("tr");
+        [r.studentName, r.studentId, r.status, r.markedAt].forEach((value, i) => {
+          const cell = document.createElement("td");
+          cell.textContent = value || "";
+          if (i === 2) cell.className = r.status === "Present" ? "present" : "absent";
+          row.appendChild(cell);
+        });
+        body.appendChild(row);
+      });
+    }
+
+    document.getElementById("start-class").addEventListener("click", function() {
+      const teacherName = document.getElementById("teacher-name").value.trim();
+      const className = document.getElementById("subject").value.trim();
+
+      if (!teacherName || !className) {
+        message("Enter the teacher name and class name first.", "error");
+        return;
+      }
+
+      const session = {
+        active: true,
+        teacherName,
+        className,
+        sessionId: "session-" + Date.now(),
+        startedAt: Date.now()
+      };
+
+      localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      if (qrTimer) clearInterval(qrTimer);
+      renderQR();
+      qrTimer = setInterval(renderQR, 10000);
+
+      document.getElementById("class-status").textContent = "Active: " + className;
+      document.getElementById("class-status").className = "session-badge active";
+      renderSummary();
+      message("Class started. QR refreshes every 10 seconds.", "success");
+    });
+
+    document.getElementById("end-class").addEventListener("click", function() {
+      const session = getSession();
+      if (session) {
+        session.active = false;
+        localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+      }
+
+      if (qrTimer) clearInterval(qrTimer);
+      qrTimer = null;
+      renderQR();
+
+      document.getElementById("class-status").textContent = "Class ended";
+      document.getElementById("class-status").className = "session-badge";
+      message("Class ended. Students cannot mark attendance for this class.", "info");
+    });
+
+    document.getElementById("copy-qr").addEventListener("click", async function() {
+      const text = document.getElementById("qr-text").value;
+      if (!text) {
+        message("Start a class first.", "error");
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(text);
+        message("QR contents copied. Paste them into the student page.", "success");
+      } catch {
+        document.getElementById("qr-text").select();
+        message("Select and copy the QR contents manually.", "info");
+      }
+    });
+
+    document.getElementById("refresh-summary").addEventListener("click", renderSummary);
+    document.getElementById("logout").addEventListener("click", function() {
+      sessionStorage.removeItem("attendx_demo_teacher");
+    });
+
+    window.addEventListener("storage", renderSummary);
+    renderQR();
+    const initialSession = getSession();
+    if (initialSession && initialSession.active) {
+      document.getElementById("class-status").textContent = "Active: " + initialSession.className;
+      document.getElementById("class-status").className = "session-badge active";
+      qrTimer = setInterval(renderQR, 10000);
+    }
+    renderSummary();
+  </script>
+</body>
+</html>

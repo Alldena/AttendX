@@ -1,0 +1,221 @@
+* { box-sizing: border-box; }
+
+:root {
+  --blue: #2563eb;
+  --dark-blue: #1e40af;
+  --teal: #0f766e;
+  --ink: #172554;
+  --muted: #64748b;
+  --line: #dbe3ef;
+  --background: #f4f7fb;
+}
+
+body {
+  margin: 0;
+  font-family: Arial, sans-serif;
+  color: var(--ink);
+  background: var(--background);
+  line-height: 1.6;
+}
+
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 16px 5%;
+  background: white;
+  border-bottom: 1px solid var(--line);
+}
+
+.logo {
+  color: var(--blue);
+  font-size: 25px;
+  font-weight: bold;
+  text-decoration: none;
+}
+
+.nav-links {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: bold;
+}
+
+.home-page, .page-container {
+  width: min(1000px, 92%);
+  margin: auto;
+}
+
+.page-container {
+  padding-top: 35px;
+  padding-bottom: 50px;
+}
+
+.hero {
+  text-align: center;
+  padding: 55px 10px 25px;
+}
+
+.hero h1 {
+  font-size: clamp(35px, 6vw, 52px);
+  margin-bottom: 10px;
+}
+
+.hero h1 span { color: var(--blue); }
+
+.hero p, .page-heading p {
+  color: var(--muted);
+}
+
+.role-grid, .two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+  margin: 25px 0;
+}
+
+.role-card, .card {
+  background: white;
+  padding: 25px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 6px 22px rgba(15, 23, 42, .05);
+}
+
+.role-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.role-card p { color: var(--muted); flex: 1; }
+.role-icon { font-size: 45px; }
+
+.button, button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  min-height: 44px;
+  border: none;
+  border-radius: 9px;
+  background: var(--blue);
+  color: white;
+  font: inherit;
+  font-weight: bold;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.button:hover, button:hover { background: var(--dark-blue); }
+.button-teal { background: var(--teal); }
+.button-secondary { background: #e2e8f0; color: var(--ink); }
+.button-danger { background: #b91c1c; }
+.button:disabled, button:disabled { opacity: .5; cursor: not-allowed; }
+.role-card .button { width: 100%; margin-top: 12px; }
+
+label {
+  display: block;
+  margin: 15px 0 7px;
+  font-weight: bold;
+}
+
+input, textarea {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font: inherit;
+  background: white;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.note, .demo-note { color: var(--muted); font-size: 13px; }
+.demo-note, .center { text-align: center; }
+
+.status-message {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 9px;
+}
+.status-success { background: #dcfce7; color: #166534; }
+.status-error { background: #fee2e2; color: #991b1b; }
+.status-info { background: #eaf2ff; color: #1e40af; }
+
+.session-badge {
+  display: inline-block;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background: #e2e8f0;
+  font-size: 13px;
+}
+.session-badge.active { background: #dcfce7; color: #166534; }
+
+#qrcode {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 220px;
+  margin: 18px auto;
+}
+#qrcode img, #qrcode canvas { max-width: 100%; }
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.metric {
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 15px;
+}
+.metric strong { display: block; font-size: 25px; }
+.metric span { color: var(--muted); font-size: 13px; }
+
+.table-wrap { overflow-x: auto; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 18px;
+  background: white;
+}
+th, td {
+  padding: 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+th { background: #edf2fa; }
+.present { color: #166534; font-weight: bold; }
+.absent { color: #b91c1c; font-weight: bold; }
+
+#camera {
+  display: block;
+  width: 100%;
+  max-width: 450px;
+  margin-top: 15px;
+  background: #0f172a;
+  border-radius: 12px;
+}
+#camera[hidden] { display: none; }
+
+@media (max-width: 650px) {
+  .role-grid, .two-column, .metric-grid { grid-template-columns: 1fr; }
+  .role-card, .card { padding: 20px; }
+}
